@@ -10,7 +10,7 @@ namespace Aggregator.Aggregators.HackerNews;
 
 [AggregatorPlugin("hackernews", "Hacker News")]
 public class HackerNewsAggregator(
-    HttpClient httpClient,
+    IHttpClientFactory httpClientFactory,
     ILogger<HackerNewsAggregator> logger) : BaseAggregator
 {
     private static readonly Action<ILogger, Exception?> LogFetchError =
@@ -34,6 +34,7 @@ public class HackerNewsAggregator(
     {
         try
         {
+            using var httpClient = httpClientFactory.CreateClient();
             var topStories = await httpClient.GetFromJsonAsync<int[]>(
                 TopStoriesUrl, cancellationToken);
 

@@ -8,7 +8,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddHackerNewsAggregator(
         this IServiceCollection services)
     {
-        services.AddHttpClient<HackerNewsAggregator>();
+        services.AddHttpClient();
         services.AddScoped<INewsAggregator, HackerNewsAggregator>();
         return services;
     }

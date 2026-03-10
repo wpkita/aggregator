@@ -11,13 +11,8 @@ public class HackerNewsAggregatorTests
     [Test]
     public async Task FetchAsyncReturnsEmptyWhenHttpFails()
     {
-        var handler = new FailingHttpMessageHandler();
-        var client = new HttpClient(handler)
-        {
-            BaseAddress = new Uri("https://hacker-news.firebaseio.com/")
-        };
-
-        var aggregator = new HackerNewsAggregator(client, NullLogger<HackerNewsAggregator>.Instance);
+        var factory = new StubHttpClientFactory(new FailingHttpMessageHandler());
+        var aggregator = new HackerNewsAggregator(factory, NullLogger<HackerNewsAggregator>.Instance);
 
         var result = await aggregator.FetchAsync();
 
@@ -27,11 +22,15 @@ public class HackerNewsAggregatorTests
     [Test]
     public void NameIsHackernews()
     {
-        var aggregator = new HackerNewsAggregator(
-            new HttpClient(),
-            NullLogger<HackerNewsAggregator>.Instance);
+        var factory = new StubHttpClientFactory(new FailingHttpMessageHandler());
+        var aggregator = new HackerNewsAggregator(factory, NullLogger<HackerNewsAggregator>.Instance);
 
         Assert.That(aggregator.Name, Is.EqualTo("hackernews"));
+    }
+
+    private sealed class StubHttpClientFactory(HttpMessageHandler handler) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(handler);
     }
 
     private sealed class FailingHttpMessageHandler : HttpMessageHandler
