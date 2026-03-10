@@ -1,4 +1,5 @@
 using Aggregator.Aggregators.HackerNews;
+using Aggregator.Core.Entities;
 using Aggregator.Core.Infrastructure;
 using Aggregator.Data.Sqlite;
 using Aggregator.Services;
@@ -40,9 +41,24 @@ using (var scope = provider.CreateScope())
         registry.Register(aggregator);
 }
 
-// Poll
+// Poll then print top 3 items per aggregator ordered by Score descending
 using (var scope = provider.CreateScope())
 {
-    var polling = scope.ServiceProvider.GetRequiredService<NewsPollingService>();
-    await polling.PollAllAsync();
+    var repository = scope.ServiceProvider.GetRequiredService<IRepository<NewsItem>>();
+    var allItems = await repository.GetAllAsync();
+
+    var registry = provider.GetRequiredService<IAggregatorRegistry>();
+    foreach (var aggregator in registry.GetAll())
+    {
+        Console.WriteLine($"=== {aggregator.DisplayName} ===");
+        var top3 = allItems
+            .Where(x => x.Source == aggregator.Name)
+            .OrderByDescending(x => x.Score)
+            .Take(3);
+
+        foreach (var item in top3)
+            Console.WriteLine($"[{item.Source}] Score: {item.Score} | {item.Title} | {item.Url}");
+
+        Console.WriteLine();
+    }
 }
