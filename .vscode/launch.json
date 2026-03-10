@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Console App",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-console",
+      "program": "${workspaceFolder}/src/Aggregator.Console/bin/Debug/net10.0/Aggregator.Console.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Aggregator.Console",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Background Service",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-background-service",
+      "program": "${workspaceFolder}/src/Aggregator.BackgroundService/bin/Debug/net10.0/Aggregator.BackgroundService.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Aggregator.BackgroundService",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    }
+  ]
+}
