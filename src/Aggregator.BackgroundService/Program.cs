@@ -1,11 +1,8 @@
-using Aggregator.Aggregators.Dynamic;
 using Aggregator.Aggregators.HackerNews;
-using Aggregator.Core.Entities;
 using Aggregator.Core.Infrastructure;
 using Aggregator.Data.Sqlite;
 using Aggregator.Services;
 using Aggregator.Worker;
-using Microsoft.Extensions.Logging;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -39,19 +36,6 @@ using (var scope = host.Services.CreateScope())
     foreach (INewsAggregator aggregator in scope.ServiceProvider.GetServices<INewsAggregator>())
     {
         registry.Register(aggregator);
-    }
-}
-
-// Register persisted dynamic aggregators
-using (var scope = host.Services.CreateScope())
-{
-    var configRepo = scope.ServiceProvider.GetRequiredService<IRepository<AggregatorConfig>>();
-    var httpFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
-    var dynLogger = scope.ServiceProvider.GetRequiredService<ILogger<DynamicAggregator>>();
-
-    foreach (AggregatorConfig aggConfig in await configRepo.GetAllAsync())
-    {
-        registry.Register(new DynamicAggregator(aggConfig, httpFactory, dynLogger));
     }
 }
 
