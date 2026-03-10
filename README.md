@@ -25,7 +25,7 @@ The database is created automatically on first run. SQLite writes a `news.db` fi
 The default connection string comes from `appsettings.json` in each entry point project. Override at runtime with environment variables:
 
 | Variable                      | Applies to             | Description                                                 |
-|-------------------------------|------------------------|-------------------------------------------------------------|
+| ----------------------------- | ---------------------- | ----------------------------------------------------------- |
 | `ConnectionStrings__Default`  | Both                   | SQLite connection string (e.g. `Data Source=/data/news.db`) |
 | `Worker__PollIntervalSeconds` | BackgroundService only | Polling interval in seconds (default: 300)                  |
 
@@ -50,29 +50,3 @@ Stop with `Ctrl+C`.
 ## Adding a New Aggregator
 
 ...
-
-## Linting & Formatting
-
-[`dotnet format`](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-format) enforces
-`.editorconfig` rules. `EnforceCodeStyleInBuild` is enabled, so `dotnet build` also fails on
-style violations.
-
-Verify without modifying files (for CI):
-
-```sh
-dotnet format --verify-no-changes
-```
-
-Auto-fix all issues:
-
-```sh
-dotnet format
-```
-
-Run individual checks:
-
-```sh
-dotnet format whitespace --verify-no-changes
-dotnet format style --verify-no-changes
-dotnet format analyzers --verify-no-changes
-```
