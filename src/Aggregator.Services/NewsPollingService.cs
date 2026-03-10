@@ -62,23 +62,31 @@ public class NewsPollingService(
         {
             var items = await aggregator.FetchAsync(cancellationToken);
             var existing = (await repository.GetAllAsync(cancellationToken))
-                .Select(x => (x.Url, x.Source))
-                .ToHashSet();
+                .ToDictionary(x => (x.Url, x.Source));
 
             foreach (var item in items)
             {
-                if (existing.Contains((item.Url, item.Source)))
-                    continue;
-
-                await repository.AddAsync(new NewsItem
+                if (existing.TryGetValue((item.Url, item.Source), out var existingItem))
                 {
-                    Title = item.Title,
-                    Url = item.Url,
-                    Source = item.Source,
-                    PublishedAt = item.PublishedAt,
-                    Score = item.Score,
-                    CommentCount = item.CommentCount,
-                }, cancellationToken);
+                    existingItem.Title = item.Title;
+                    existingItem.PublishedAt = item.PublishedAt;
+                    existingItem.Score = item.Score;
+                    existingItem.CommentCount = item.CommentCount;
+                    existingItem.FetchedAt = DateTime.UtcNow;
+                    await repository.UpdateAsync(existingItem, cancellationToken);
+                }
+                else
+                {
+                    await repository.AddAsync(new NewsItem
+                    {
+                        Title = item.Title,
+                        Url = item.Url,
+                        Source = item.Source,
+                        PublishedAt = item.PublishedAt,
+                        Score = item.Score,
+                        CommentCount = item.CommentCount,
+                    }, cancellationToken);
+                }
             }
 
             await repository.SaveChangesAsync(cancellationToken);

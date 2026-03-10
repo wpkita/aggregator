@@ -50,18 +50,20 @@ public class NewsPollingServiceTests
     }
 
     [Test]
-    public async Task PollAllAsyncSkipsDuplicates()
+    public async Task PollAllAsyncUpdatesExistingItems()
     {
         var dto = new AggregatedNewsDto(
-            "Test Title", "https://example.com", "test",
-            DateTime.UtcNow, 100, 10);
+            "Updated Title", "https://example.com", "test",
+            DateTime.UtcNow, 200, 20);
 
         var existingItem = new NewsItem
         {
-            Title = dto.Title,
+            Title = "Old Title",
             Url = dto.Url,
             Source = dto.Source,
             PublishedAt = dto.PublishedAt,
+            Score = 100,
+            CommentCount = 10,
         };
 
         var aggregatorMock = new Mock<INewsAggregator>();
@@ -77,6 +79,10 @@ public class NewsPollingServiceTests
         _repositoryMock.Verify(
             r => r.AddAsync(It.IsAny<NewsItem>(), default),
             Times.Never);
+        _repositoryMock.Verify(
+            r => r.UpdateAsync(It.Is<NewsItem>(n => n.Title == dto.Title && n.Score == dto.Score), default),
+            Times.Once);
+        _repositoryMock.Verify(r => r.SaveChangesAsync(default), Times.Once);
     }
 
     [Test]
