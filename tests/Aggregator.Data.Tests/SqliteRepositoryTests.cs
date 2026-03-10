@@ -29,8 +29,10 @@ public sealed class SqliteRepositoryTests : IDisposable
     {
         var item = new NewsItem
         {
-            Title = "Test", Url = "https://example.com",
-            Source = "test", PublishedAt = DateTime.UtcNow,
+            Title = "Test",
+            Url = "https://example.com",
+            Source = "test",
+            PublishedAt = DateTime.UtcNow,
         };
 
         await _repository.AddAsync(item);
@@ -52,8 +54,10 @@ public sealed class SqliteRepositoryTests : IDisposable
     {
         var item = new NewsItem
         {
-            Title = "Test", Url = "https://example.com",
-            Source = "test", PublishedAt = DateTime.UtcNow,
+            Title = "Test",
+            Url = "https://example.com",
+            Source = "test",
+            PublishedAt = DateTime.UtcNow,
         };
 
         await _repository.AddAsync(item);

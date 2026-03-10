@@ -34,16 +34,18 @@ public class HackerNewsAggregator(
     {
         try
         {
-            using var httpClient = httpClientFactory.CreateClient();
-            var topStories = await httpClient.GetFromJsonAsync<int[]>(
+            using HttpClient httpClient = httpClientFactory.CreateClient();
+            int[]? topStories = await httpClient.GetFromJsonAsync<int[]>(
                 TopStoriesUrl, cancellationToken);
 
             if (topStories is null)
+            {
                 return [];
+            }
 
-            var results = new List<AggregatedNewsDto>();
+            List<AggregatedNewsDto> results = [];
 
-            foreach (var storyId in topStories.Take(MaxStories))
+            foreach (int storyId in topStories.Take(MaxStories))
             {
                 var story = await httpClient.GetFromJsonAsync<HackerNewsStory>(
                     string.Format(CultureInfo.InvariantCulture, ItemUrlFormat, storyId),

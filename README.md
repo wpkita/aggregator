@@ -47,6 +47,32 @@ dotnet run --project src/Aggregator.BackgroundService
 
 Stop with `Ctrl+C`.
 
-## Adding a new aggregator
+## Adding a New Aggregator
 
 ...
+
+## Linting & Formatting
+
+[`dotnet format`](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-format) enforces
+`.editorconfig` rules. `EnforceCodeStyleInBuild` is enabled, so `dotnet build` also fails on
+style violations.
+
+Verify without modifying files (for CI):
+
+```sh
+dotnet format --verify-no-changes
+```
+
+Auto-fix all issues:
+
+```sh
+dotnet format
+```
+
+Run individual checks:
+
+```sh
+dotnet format whitespace --verify-no-changes
+dotnet format style --verify-no-changes
+dotnet format analyzers --verify-no-changes
+```

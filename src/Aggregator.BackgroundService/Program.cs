@@ -26,8 +26,10 @@ using (var scope = host.Services.CreateScope())
 var registry = host.Services.GetRequiredService<IAggregatorRegistry>();
 using (var scope = host.Services.CreateScope())
 {
-    foreach (var aggregator in scope.ServiceProvider.GetServices<INewsAggregator>())
+    foreach (INewsAggregator aggregator in scope.ServiceProvider.GetServices<INewsAggregator>())
+    {
         registry.Register(aggregator);
+    }
 }
 
 await host.RunAsync();

@@ -12,7 +12,7 @@ var config = new ConfigurationBuilder()
     .AddEnvironmentVariables()
     .Build();
 
-var connectionString = config.GetConnectionString("Default")
+string connectionString = config.GetConnectionString("Default")
     ?? throw new InvalidOperationException(
         "ConnectionStrings:Default is not configured. " +
         "Set it in appsettings.json or via the ConnectionStrings__Default environment variable.");
@@ -37,8 +37,10 @@ using (var scope = provider.CreateScope())
 using (var scope = provider.CreateScope())
 {
     var registry = provider.GetRequiredService<IAggregatorRegistry>();
-    foreach (var aggregator in scope.ServiceProvider.GetServices<INewsAggregator>())
+    foreach (INewsAggregator aggregator in scope.ServiceProvider.GetServices<INewsAggregator>())
+    {
         registry.Register(aggregator);
+    }
 }
 
 // Poll then print top 3 items per aggregator ordered by Score descending
@@ -56,8 +58,10 @@ using (var scope = provider.CreateScope())
             .OrderByDescending(x => x.Score)
             .Take(3);
 
-        foreach (var item in top3)
+        foreach (NewsItem item in top3)
+        {
             Console.WriteLine($"[{item.Source}] Score: {item.Score} | {item.Title} | {item.Url}");
+        }
 
         Console.WriteLine();
     }
