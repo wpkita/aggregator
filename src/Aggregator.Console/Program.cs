@@ -13,10 +13,14 @@ var config = new ConfigurationBuilder()
     .AddEnvironmentVariables()
     .Build();
 
-string connectionString = config.GetConnectionString("Default")
+string rawConnectionString = config.GetConnectionString("Default")
     ?? throw new InvalidOperationException(
         "ConnectionStrings:Default is not configured. " +
         "Set it in appsettings.json or via the ConnectionStrings__Default environment variable.");
+
+// Resolve relative Data Source paths against the working directory so the app
+// works regardless of how it is invoked (e.g. dotnet run --project ...).
+string connectionString = ResolveConnectionString(rawConnectionString, Directory.GetCurrentDirectory());
 
 var services = new ServiceCollection();
 services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
@@ -84,7 +88,7 @@ static void PrintUsage()
     Console.WriteLine("Usage: aggy <command> [options]");
     Console.WriteLine();
     Console.WriteLine("Commands:");
-    Console.WriteLine("  top       Display the top item from each aggregator");
+    Console.WriteLine("  top       Display the top 3 items from each aggregator");
     Console.WriteLine("  list      List aggregators added by the user");
     Console.WriteLine("  add       Add a new aggregator");
     Console.WriteLine("  remove    Remove an aggregator");
@@ -99,7 +103,7 @@ static int PrintHelp()
     Console.WriteLine("Usage: aggy <command> [options]");
     Console.WriteLine();
     Console.WriteLine("Commands:");
-    Console.WriteLine("  top                     Display the top item from each aggregator");
+    Console.WriteLine("  top                     Display the top 3 items from each aggregator");
     Console.WriteLine("  list                    List aggregators added by the user");
     Console.WriteLine("  add <url> [options]     Add a new aggregator");
     Console.WriteLine("  remove <name>           Remove a dynamic aggregator by name");
@@ -127,13 +131,11 @@ static async Task<int> RunTopAsync(
     {
         Console.WriteLine("Usage: aggy top");
         Console.WriteLine();
-        Console.WriteLine("Fetches and displays the top item from each registered aggregator.");
+        Console.WriteLine("Fetches and displays the top 3 items from each registered aggregator.");
         return 0;
     }
 
     using var scope = provider.CreateScope();
-    var polling = scope.ServiceProvider.GetRequiredService<NewsPollingService>();
-    await polling.PollAllAsync();
 
     var repository = scope.ServiceProvider.GetRequiredService<IRepository<NewsItem>>();
     var allItems = await repository.GetAllAsync();
@@ -144,12 +146,16 @@ static async Task<int> RunTopAsync(
         var top = allItems
             .Where(x => x.Source == aggregator.Name)
             .OrderByDescending(x => x.Score)
-            .FirstOrDefault();
+            .Take(3)
+            .ToList();
 
-        if (top is not null)
+        if (top.Count > 0)
         {
-            Console.WriteLine($"[{top.Source}] Score: {top.Score} | {top.Title}");
-            Console.WriteLine($"  {top.Url}");
+            foreach (var item in top)
+            {
+                Console.WriteLine($"[{item.Source}] Score: {item.Score} | {item.Title}");
+                Console.WriteLine($"  {item.Url}");
+            }
         }
         else
         {
@@ -233,11 +239,16 @@ static async Task<int> RunAddAsync(
     string? commentCountField = GetFlag(flags, "-c", "--comment-count");
 
     var missing = new List<string>();
-    if (name is null) { missing.Add("-n/--name"); }
-    if (displayName is null) { missing.Add("-d/--display-name"); }
-    if (titleField is null) { missing.Add("-t/--title"); }
-    if (urlField is null) { missing.Add("-u/--url"); }
-    if (publishedAtField is null) { missing.Add("-p/--published-at"); }
+    if (name is null)
+    { missing.Add("-n/--name"); }
+    if (displayName is null)
+    { missing.Add("-d/--display-name"); }
+    if (titleField is null)
+    { missing.Add("-t/--title"); }
+    if (urlField is null)
+    { missing.Add("-u/--url"); }
+    if (publishedAtField is null)
+    { missing.Add("-p/--published-at"); }
 
     if (missing.Count > 0)
     {
@@ -345,3 +356,22 @@ static string? GetFlag(Dictionary<string, string> flags, string shortName, strin
     => flags.TryGetValue(shortName, out string? v) ? v
         : flags.TryGetValue(longName, out v) ? v
         : null;
+
+static string ResolveConnectionString(string connectionString, string baseDirectory)
+{
+    const string prefix = "Data Source=";
+    if (!connectionString.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+    {
+        return connectionString;
+    }
+
+    string dataSource = connectionString[prefix.Length..];
+    if (Path.IsPathRooted(dataSource))
+    {
+        return connectionString;
+    }
+
+    string resolved = Path.GetFullPath(dataSource, baseDirectory);
+    Directory.CreateDirectory(Path.GetDirectoryName(resolved)!);
+    return prefix + resolved;
+}
