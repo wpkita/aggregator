@@ -25,7 +25,7 @@ The database is created automatically on first run. SQLite writes a `news.db` fi
 The default connection string comes from `appsettings.json` in each entry point project. Override at runtime with environment variables:
 
 | Variable                      | Applies to             | Description                                                 |
-|-------------------------------|------------------------|-------------------------------------------------------------|
+| ----------------------------- | ---------------------- | ----------------------------------------------------------- |
 | `ConnectionStrings__Default`  | Both                   | SQLite connection string (e.g. `Data Source=/data/news.db`) |
 | `Worker__PollIntervalSeconds` | BackgroundService only | Polling interval in seconds (default: 300)                  |
 
@@ -49,7 +49,36 @@ Stop with `Ctrl+C`.
 
 ## Adding a New Aggregator
 
-...
+# Show help
+
+```bash
+aggy --help
+```
+
+### Add Reddit r/programming
+
+```bash
+aggy add https://www.reddit.com/r/programming/.json \
+    -n reddit-programming \
+    -d "Reddit r/programming" \
+    -t title \
+    -u url \
+    -p created_utc \
+    -s score \
+    -c num_comments
+```
+
+### List all aggregators
+
+`aggy list`
+
+### Show top item from each aggregator (polls first)
+
+`aggy top`
+
+### Remove a dynamic aggregator
+
+`aggy remove reddit-programming`
 
 ## Linting & Formatting
 

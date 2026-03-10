@@ -13,6 +13,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddDbContext<NewsContext>(opt => opt.UseSqlite(connectionString));
         services.AddScoped<IRepository<NewsItem>, SqliteRepository<NewsItem>>();
+        services.AddScoped<IRepository<AggregatorConfig>, SqliteRepository<AggregatorConfig>>();
         return services;
     }
 }

@@ -4,6 +4,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Aggregator.Aggregators.Dynamic\Aggregator.Aggregators.Dynamic.csproj" />
     <ProjectReference Include="..\Aggregator.Aggregators.HackerNews\Aggregator.Aggregators.HackerNews.csproj" />
     <ProjectReference Include="..\Aggregator.Core\Aggregator.Core.csproj" />
     <ProjectReference Include="..\Aggregator.Data.Sqlite\Aggregator.Data.Sqlite.csproj" />

@@ -1,3 +1,4 @@
+using Aggregator.Aggregators.Dynamic;
 using Aggregator.Aggregators.HackerNews;
 using Aggregator.Core.Entities;
 using Aggregator.Core.Infrastructure;
@@ -18,51 +19,329 @@ string connectionString = config.GetConnectionString("Default")
         "Set it in appsettings.json or via the ConnectionStrings__Default environment variable.");
 
 var services = new ServiceCollection();
-
-services.AddLogging(b => b.AddConsole());
+services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
 services.AddSqliteDataProvider(connectionString);
 services.AddNewsServices();
 services.AddHackerNewsAggregator();
+services.AddHttpClient();
 
 var provider = services.BuildServiceProvider();
 
-// Ensure database is created
 using (var scope = provider.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<Aggregator.Data.Sqlite.NewsContext>();
+    var context = scope.ServiceProvider.GetRequiredService<NewsContext>();
     await context.Database.EnsureCreatedAsync();
 }
 
-// Register all INewsAggregator implementations with the registry
+var registry = provider.GetRequiredService<IAggregatorRegistry>();
+
+// Register static aggregators
 using (var scope = provider.CreateScope())
 {
-    var registry = provider.GetRequiredService<IAggregatorRegistry>();
     foreach (INewsAggregator aggregator in scope.ServiceProvider.GetServices<INewsAggregator>())
     {
         registry.Register(aggregator);
     }
 }
 
-// Poll then print top 3 items per aggregator ordered by Score descending
+// Register persisted dynamic aggregators
 using (var scope = provider.CreateScope())
 {
+    var configRepo = scope.ServiceProvider.GetRequiredService<IRepository<AggregatorConfig>>();
+    var httpFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
+    var dynLogger = scope.ServiceProvider.GetRequiredService<ILogger<DynamicAggregator>>();
+
+    foreach (AggregatorConfig aggConfig in await configRepo.GetAllAsync())
+    {
+        registry.Register(new DynamicAggregator(aggConfig, httpFactory, dynLogger));
+    }
+}
+
+// --- CLI dispatch ---
+
+if (args.Length == 0)
+{
+    PrintUsage();
+    return 0;
+}
+
+return args[0] switch
+{
+    "top" => await RunTopAsync(args[1..], provider, registry),
+    "list" => RunList(args[1..], registry),
+    "add" => await RunAddAsync(args[1..], provider, registry),
+    "remove" => await RunRemoveAsync(args[1..], provider, registry),
+    "--help" or "-h" => PrintHelp(),
+    _ => PrintUnknownCommand(args[0]),
+};
+
+// --- Commands ---
+
+static void PrintUsage()
+{
+    Console.WriteLine("aggy");
+    Console.WriteLine();
+    Console.WriteLine("Usage: aggy <command> [options]");
+    Console.WriteLine();
+    Console.WriteLine("Commands:");
+    Console.WriteLine("  top       Display the top item from each aggregator");
+    Console.WriteLine("  list      List aggregators added by the user");
+    Console.WriteLine("  add       Add a new aggregator");
+    Console.WriteLine("  remove    Remove an aggregator");
+    Console.WriteLine();
+    Console.WriteLine("Run 'aggy --help' for more information.");
+}
+
+static int PrintHelp()
+{
+    Console.WriteLine("aggy - CLI news aggregator");
+    Console.WriteLine();
+    Console.WriteLine("Usage: aggy <command> [options]");
+    Console.WriteLine();
+    Console.WriteLine("Commands:");
+    Console.WriteLine("  top                     Display the top item from each aggregator");
+    Console.WriteLine("  list                    List aggregators added by the user");
+    Console.WriteLine("  add <url> [options]     Add a new aggregator");
+    Console.WriteLine("  remove <name>           Remove a dynamic aggregator by name");
+    Console.WriteLine();
+    Console.WriteLine("Options:");
+    Console.WriteLine("  --help, -h              Show help");
+    Console.WriteLine();
+    Console.WriteLine("Run 'aggy <command> --help' for command-specific help.");
+    return 0;
+}
+
+static int PrintUnknownCommand(string command)
+{
+    Console.Error.WriteLine($"Unknown command: '{command}'");
+    Console.Error.WriteLine("Run 'aggy --help' for usage.");
+    return 1;
+}
+
+static async Task<int> RunTopAsync(
+    string[] args,
+    IServiceProvider provider,
+    IAggregatorRegistry registry)
+{
+    if (args.Length > 0 && (args[0] == "--help" || args[0] == "-h"))
+    {
+        Console.WriteLine("Usage: aggy top");
+        Console.WriteLine();
+        Console.WriteLine("Fetches and displays the top item from each registered aggregator.");
+        return 0;
+    }
+
+    using var scope = provider.CreateScope();
+    var polling = scope.ServiceProvider.GetRequiredService<NewsPollingService>();
+    await polling.PollAllAsync();
+
     var repository = scope.ServiceProvider.GetRequiredService<IRepository<NewsItem>>();
     var allItems = await repository.GetAllAsync();
 
-    var registry = provider.GetRequiredService<IAggregatorRegistry>();
     foreach (var aggregator in registry.GetAll())
     {
         Console.WriteLine($"=== {aggregator.DisplayName} ===");
-        var top3 = allItems
+        var top = allItems
             .Where(x => x.Source == aggregator.Name)
             .OrderByDescending(x => x.Score)
-            .Take(3);
+            .FirstOrDefault();
 
-        foreach (NewsItem item in top3)
+        if (top is not null)
         {
-            Console.WriteLine($"[{item.Source}] Score: {item.Score} | {item.Title} | {item.Url}");
+            Console.WriteLine($"[{top.Source}] Score: {top.Score} | {top.Title}");
+            Console.WriteLine($"  {top.Url}");
+        }
+        else
+        {
+            Console.WriteLine("  No items yet.");
         }
 
         Console.WriteLine();
     }
+
+    return 0;
 }
+
+static int RunList(string[] args, IAggregatorRegistry registry)
+{
+    if (args.Length > 0 && (args[0] == "--help" || args[0] == "-h"))
+    {
+        Console.WriteLine("Usage: aggy list");
+        Console.WriteLine();
+        Console.WriteLine("Lists all aggregators that have been added by the user.");
+        return 0;
+    }
+
+    var aggregators = registry.GetAll().ToList();
+
+    if (aggregators.Count == 0)
+    {
+        Console.WriteLine("No aggregators registered.");
+        return 0;
+    }
+
+    Console.WriteLine($"{"Name",-20} {"Display Name",-30}");
+    Console.WriteLine(new string('-', 52));
+
+    foreach (var agg in aggregators)
+    {
+        Console.WriteLine($"{agg.Name,-20} {agg.DisplayName,-30}");
+    }
+
+    return 0;
+}
+
+static async Task<int> RunAddAsync(
+    string[] args,
+    IServiceProvider provider,
+    IAggregatorRegistry registry)
+{
+    if (args.Length > 0 && (args[0] == "--help" || args[0] == "-h"))
+    {
+        Console.WriteLine("Usage: aggy add <url> [options]");
+        Console.WriteLine();
+        Console.WriteLine("Arguments:");
+        Console.WriteLine("  <url>                        URL of the aggregator data (required)");
+        Console.WriteLine();
+        Console.WriteLine("Options:");
+        Console.WriteLine("  -n, --name <name>            Internal name / source key (required)");
+        Console.WriteLine("  -d, --display-name <name>    Display name (required)");
+        Console.WriteLine("  -t, --title <field>          JSON field mapped to Title (required)");
+        Console.WriteLine("  -u, --url <field>            JSON field mapped to Url (required)");
+        Console.WriteLine("  -p, --published-at <field>   JSON field mapped to PublishedAt (required)");
+        Console.WriteLine("  -s, --score <field>          JSON field mapped to Score (optional)");
+        Console.WriteLine("  -c, --comment-count <field>  JSON field mapped to CommentCount (optional)");
+        return 0;
+    }
+
+    if (args.Length == 0 || args[0].StartsWith('-'))
+    {
+        Console.Error.WriteLine("Error: <url> is required as the first argument.");
+        Console.Error.WriteLine("Run 'aggy add --help' for usage.");
+        return 1;
+    }
+
+    string url = args[0];
+    var flags = ParseFlags(args[1..]);
+
+    string? name = GetFlag(flags, "-n", "--name");
+    string? displayName = GetFlag(flags, "-d", "--display-name");
+    string? titleField = GetFlag(flags, "-t", "--title");
+    string? urlField = GetFlag(flags, "-u", "--url");
+    string? publishedAtField = GetFlag(flags, "-p", "--published-at");
+    string? scoreField = GetFlag(flags, "-s", "--score");
+    string? commentCountField = GetFlag(flags, "-c", "--comment-count");
+
+    var missing = new List<string>();
+    if (name is null) { missing.Add("-n/--name"); }
+    if (displayName is null) { missing.Add("-d/--display-name"); }
+    if (titleField is null) { missing.Add("-t/--title"); }
+    if (urlField is null) { missing.Add("-u/--url"); }
+    if (publishedAtField is null) { missing.Add("-p/--published-at"); }
+
+    if (missing.Count > 0)
+    {
+        Console.Error.WriteLine($"Error: Missing required option(s): {string.Join(", ", missing)}");
+        Console.Error.WriteLine("Run 'aggy add --help' for usage.");
+        return 1;
+    }
+
+    if (registry.IsRegistered(name!))
+    {
+        Console.Error.WriteLine($"Error: An aggregator named '{name}' is already registered.");
+        return 1;
+    }
+
+    var aggConfig = new AggregatorConfig
+    {
+        Name = name!,
+        DisplayName = displayName!,
+        Url = url,
+        TitleField = titleField!,
+        UrlField = urlField!,
+        PublishedAtField = publishedAtField!,
+        ScoreField = scoreField,
+        CommentCountField = commentCountField,
+    };
+
+    using var scope = provider.CreateScope();
+    var configRepo = scope.ServiceProvider.GetRequiredService<IRepository<AggregatorConfig>>();
+    await configRepo.AddAsync(aggConfig);
+    await configRepo.SaveChangesAsync();
+
+    var httpFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
+    var dynLogger = scope.ServiceProvider.GetRequiredService<ILogger<DynamicAggregator>>();
+    registry.Register(new DynamicAggregator(aggConfig, httpFactory, dynLogger));
+
+    Console.WriteLine($"Added aggregator '{displayName}' ({name}).");
+    return 0;
+}
+
+static async Task<int> RunRemoveAsync(
+    string[] args,
+    IServiceProvider provider,
+    IAggregatorRegistry registry)
+{
+    if (args.Length > 0 && (args[0] == "--help" || args[0] == "-h"))
+    {
+        Console.WriteLine("Usage: aggy remove <name>");
+        Console.WriteLine();
+        Console.WriteLine("Arguments:");
+        Console.WriteLine("  <name>    Internal name of the aggregator to remove (required)");
+        Console.WriteLine();
+        Console.WriteLine("Note: Static aggregators (e.g. hackernews) cannot be removed.");
+        return 0;
+    }
+
+    if (args.Length == 0 || args[0].StartsWith('-'))
+    {
+        Console.Error.WriteLine("Error: <name> is required.");
+        Console.Error.WriteLine("Run 'aggy remove --help' for usage.");
+        return 1;
+    }
+
+    string name = args[0];
+
+    using var scope = provider.CreateScope();
+    var configRepo = scope.ServiceProvider.GetRequiredService<IRepository<AggregatorConfig>>();
+    var all = await configRepo.GetAllAsync();
+    var existing = all.FirstOrDefault(c => c.Name == name);
+
+    if (existing is null)
+    {
+        Console.Error.WriteLine($"Error: No dynamic aggregator named '{name}' found.");
+        Console.Error.WriteLine("Note: Static aggregators (e.g. hackernews) cannot be removed.");
+        return 1;
+    }
+
+    await configRepo.DeleteAsync(existing);
+    await configRepo.SaveChangesAsync();
+
+    registry.Unregister(name);
+
+    Console.WriteLine($"Removed aggregator '{name}'.");
+    return 0;
+}
+
+// --- Argument parsing helpers ---
+
+static Dictionary<string, string> ParseFlags(string[] args)
+{
+    var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    for (int i = 0; i < args.Length - 1; i++)
+    {
+        if (args[i].StartsWith('-') && !args[i + 1].StartsWith('-'))
+        {
+            result[args[i]] = args[i + 1];
+            i++;
+        }
+    }
+
+    return result;
+}
+
+static string? GetFlag(Dictionary<string, string> flags, string shortName, string longName)
+    => flags.TryGetValue(shortName, out string? v) ? v
+        : flags.TryGetValue(longName, out v) ? v
+        : null;

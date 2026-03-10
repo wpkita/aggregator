@@ -17,6 +17,12 @@ public class AggregatorRegistry(ILogger<AggregatorRegistry> logger) : IAggregato
             new EventId(2, nameof(Register)),
             "Registered aggregator: {DisplayName}");
 
+    private static readonly Action<ILogger, string, Exception?> LogUnregistered =
+        LoggerMessage.Define<string>(
+            LogLevel.Information,
+            new EventId(3, nameof(Unregister)),
+            "Unregistered aggregator: {Name}");
+
     private readonly Dictionary<string, INewsAggregator> _aggregators = [];
 
     public void Register(INewsAggregator aggregator)
@@ -29,6 +35,17 @@ public class AggregatorRegistry(ILogger<AggregatorRegistry> logger) : IAggregato
 
         _aggregators[aggregator.Name] = aggregator;
         LogRegistered(logger, aggregator.DisplayName, null);
+    }
+
+    public bool Unregister(string name)
+    {
+        if (!_aggregators.Remove(name))
+        {
+            return false;
+        }
+
+        LogUnregistered(logger, name, null);
+        return true;
     }
 
     public INewsAggregator? Find(string name)
