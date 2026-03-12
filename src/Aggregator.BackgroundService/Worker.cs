@@ -2,12 +2,8 @@ using Aggregator.Aggregators.Dynamic;
 using Aggregator.Core.Entities;
 using Aggregator.Core.Infrastructure;
 using Aggregator.Services;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
-namespace Aggregator.Worker;
+namespace Aggregator.BackgroundService;
 
 public class NewsWorker(
     IServiceProvider provider,
@@ -49,7 +45,7 @@ public class NewsWorker(
         var configs = await configRepo.GetAllAsync(cancellationToken);
         var configNames = configs.Select(c => c.Name).ToHashSet();
 
-        foreach (AggregatorConfig config in configs)
+        foreach (var config in configs)
         {
             if (!registry.IsRegistered(config.Name))
             {
@@ -57,7 +53,7 @@ public class NewsWorker(
             }
         }
 
-        foreach (INewsAggregator aggregator in registry.GetAll().ToList())
+        foreach (var aggregator in registry.GetAll().ToList())
         {
             if (aggregator is DynamicAggregator && !configNames.Contains(aggregator.Name))
             {

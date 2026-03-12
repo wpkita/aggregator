@@ -1,10 +1,11 @@
-using System.Globalization;
-using System.Net.Http.Json;
-using System.Text;
-using System.Text.Json.Serialization;
 using Aggregator.Aggregators.Abstractions;
 using Aggregator.Core.Dtos;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Aggregator.Aggregators.HackerNews;
 
@@ -34,8 +35,8 @@ public class HackerNewsAggregator(
     {
         try
         {
-            using HttpClient httpClient = httpClientFactory.CreateClient();
-            int[]? topStories = await httpClient.GetFromJsonAsync<int[]>(
+            using var httpClient = httpClientFactory.CreateClient();
+            var topStories = await httpClient.GetFromJsonAsync<int[]>(
                 TopStoriesUrl, cancellationToken);
 
             if (topStories is null)
@@ -45,7 +46,7 @@ public class HackerNewsAggregator(
 
             List<AggregatedNewsDto> results = [];
 
-            foreach (int storyId in topStories.Take(MaxStories))
+            foreach (var storyId in topStories.Take(MaxStories))
             {
                 var story = await httpClient.GetFromJsonAsync<HackerNewsStory>(
                     string.Format(CultureInfo.InvariantCulture, ItemUrlFormat, storyId),
@@ -64,7 +65,7 @@ public class HackerNewsAggregator(
 
             return results;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException)
         {
             LogFetchError(logger, ex);
             return [];

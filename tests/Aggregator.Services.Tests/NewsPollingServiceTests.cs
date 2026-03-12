@@ -1,7 +1,6 @@
 using Aggregator.Core.Dtos;
 using Aggregator.Core.Entities;
 using Aggregator.Core.Infrastructure;
-using Aggregator.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;

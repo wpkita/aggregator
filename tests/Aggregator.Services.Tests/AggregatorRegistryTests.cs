@@ -1,5 +1,4 @@
 using Aggregator.Core.Infrastructure;
-using Aggregator.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
@@ -57,7 +56,7 @@ public class AggregatorRegistryTests
     {
         _registry.Register(BuildMock("test", "Test").Object);
 
-        bool removed = _registry.Unregister("test");
+        var removed = _registry.Unregister("test");
 
         Assert.That(removed, Is.True);
         Assert.That(_registry.IsRegistered("test"), Is.False);
@@ -66,7 +65,7 @@ public class AggregatorRegistryTests
     [Test]
     public void UnregisterReturnsFalseWhenNotRegistered()
     {
-        bool removed = _registry.Unregister("nonexistent");
+        var removed = _registry.Unregister("nonexistent");
 
         Assert.That(removed, Is.False);
     }

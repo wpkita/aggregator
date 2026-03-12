@@ -13,14 +13,14 @@ var config = new ConfigurationBuilder()
     .AddEnvironmentVariables()
     .Build();
 
-string rawConnectionString = config.GetConnectionString("Default")
+var rawConnectionString = config.GetConnectionString("Default")
     ?? throw new InvalidOperationException(
         "ConnectionStrings:Default is not configured. " +
         "Set it in appsettings.json or via the ConnectionStrings__Default environment variable.");
 
 // Resolve relative Data Source paths against the working directory so the app
 // works regardless of how it is invoked (e.g. dotnet run --project ...).
-string connectionString = ResolveConnectionString(rawConnectionString, Directory.GetCurrentDirectory());
+var connectionString = ResolveConnectionString(rawConnectionString, Directory.GetCurrentDirectory());
 
 var services = new ServiceCollection();
 services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
@@ -42,7 +42,7 @@ var registry = provider.GetRequiredService<IAggregatorRegistry>();
 // Register static aggregators
 using (var scope = provider.CreateScope())
 {
-    foreach (INewsAggregator aggregator in scope.ServiceProvider.GetServices<INewsAggregator>())
+    foreach (var aggregator in scope.ServiceProvider.GetServices<INewsAggregator>())
     {
         registry.Register(aggregator);
     }
@@ -55,7 +55,7 @@ using (var scope = provider.CreateScope())
     var httpFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
     var dynLogger = scope.ServiceProvider.GetRequiredService<ILogger<DynamicAggregator>>();
 
-    foreach (AggregatorConfig aggConfig in await configRepo.GetAllAsync())
+    foreach (var aggConfig in await configRepo.GetAllAsync())
     {
         registry.Register(new DynamicAggregator(aggConfig, httpFactory, dynLogger));
     }
@@ -227,16 +227,16 @@ static async Task<int> RunAddAsync(
         return 1;
     }
 
-    string url = args[0];
+    var url = args[0];
     var flags = ParseFlags(args[1..]);
 
-    string? name = GetFlag(flags, "-n", "--name");
-    string? displayName = GetFlag(flags, "-d", "--display-name");
-    string? titleField = GetFlag(flags, "-t", "--title");
-    string? urlField = GetFlag(flags, "-u", "--url");
-    string? publishedAtField = GetFlag(flags, "-p", "--published-at");
-    string? scoreField = GetFlag(flags, "-s", "--score");
-    string? commentCountField = GetFlag(flags, "-c", "--comment-count");
+    var name = GetFlag(flags, "-n", "--name");
+    var displayName = GetFlag(flags, "-d", "--display-name");
+    var titleField = GetFlag(flags, "-t", "--title");
+    var urlField = GetFlag(flags, "-u", "--url");
+    var publishedAtField = GetFlag(flags, "-p", "--published-at");
+    var scoreField = GetFlag(flags, "-s", "--score");
+    var commentCountField = GetFlag(flags, "-c", "--comment-count");
 
     var missing = new List<string>();
     if (name is null)
@@ -311,7 +311,7 @@ static async Task<int> RunRemoveAsync(
         return 1;
     }
 
-    string name = args[0];
+    var name = args[0];
 
     using var scope = provider.CreateScope();
     var configRepo = scope.ServiceProvider.GetRequiredService<IRepository<AggregatorConfig>>();
@@ -340,7 +340,7 @@ static Dictionary<string, string> ParseFlags(string[] args)
 {
     var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-    for (int i = 0; i < args.Length - 1; i++)
+    for (var i = 0; i < args.Length - 1; i++)
     {
         if (args[i].StartsWith('-') && !args[i + 1].StartsWith('-'))
         {
@@ -353,7 +353,7 @@ static Dictionary<string, string> ParseFlags(string[] args)
 }
 
 static string? GetFlag(Dictionary<string, string> flags, string shortName, string longName)
-    => flags.TryGetValue(shortName, out string? v) ? v
+    => flags.TryGetValue(shortName, out var v) ? v
         : flags.TryGetValue(longName, out v) ? v
         : null;
 
@@ -365,13 +365,13 @@ static string ResolveConnectionString(string connectionString, string baseDirect
         return connectionString;
     }
 
-    string dataSource = connectionString[prefix.Length..];
+    var dataSource = connectionString[prefix.Length..];
     if (Path.IsPathRooted(dataSource))
     {
         return connectionString;
     }
 
-    string resolved = Path.GetFullPath(dataSource, baseDirectory);
+    var resolved = Path.GetFullPath(dataSource, baseDirectory);
     Directory.CreateDirectory(Path.GetDirectoryName(resolved)!);
     return prefix + resolved;
 }

@@ -1,7 +1,7 @@
-using System.Net;
 using Aggregator.Aggregators.HackerNews;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
+using System.Net;
 
 namespace Aggregator.Aggregators.Tests;
 

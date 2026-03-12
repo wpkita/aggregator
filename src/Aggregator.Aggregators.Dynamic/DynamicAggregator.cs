@@ -1,9 +1,9 @@
-using System.Net.Http.Json;
-using System.Text.Json;
 using Aggregator.Aggregators.Abstractions;
 using Aggregator.Core.Dtos;
 using Aggregator.Core.Entities;
 using Microsoft.Extensions.Logging;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace Aggregator.Aggregators.Dynamic;
 
@@ -32,18 +32,22 @@ public class DynamicAggregator(
     {
         try
         {
-            using HttpClient httpClient = httpClientFactory.CreateClient();
-            using HttpResponseMessage response =
+            using var httpClient = httpClientFactory.CreateClient();
+            using var response =
                 await httpClient.GetAsync(config.Url, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            using JsonDocument document = await response.Content.ReadFromJsonAsync<JsonDocument>(
+            using var document = await response.Content.ReadFromJsonAsync<JsonDocument>(
                 cancellationToken) ?? throw new InvalidOperationException("Empty response body");
 
-            JsonElement items = ResolveItemsArray(document.RootElement);
+            var items = ResolveItemsArray(document.RootElement);
             return MapItems(items);
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or InvalidOperationException)
         {
             LogFetchError(logger, config.Name, ex);
             return [];
@@ -62,7 +66,7 @@ public class DynamicAggregator(
         // Depth-first search for the first array-valued property
         if (root.ValueKind == JsonValueKind.Object)
         {
-            foreach (JsonProperty property in root.EnumerateObject())
+            foreach (var property in root.EnumerateObject())
             {
                 if (property.Value.ValueKind == JsonValueKind.Array)
                 {
@@ -70,11 +74,11 @@ public class DynamicAggregator(
                 }
             }
 
-            foreach (JsonProperty property in root.EnumerateObject())
+            foreach (var property in root.EnumerateObject())
             {
                 if (property.Value.ValueKind == JsonValueKind.Object)
                 {
-                    JsonElement nested = ResolveItemsArray(property.Value);
+                    var nested = ResolveItemsArray(property.Value);
                     if (nested.ValueKind == JsonValueKind.Array)
                     {
                         return nested;
@@ -95,15 +99,15 @@ public class DynamicAggregator(
 
         var results = new List<AggregatedNewsDto>();
 
-        foreach (JsonElement item in items.EnumerateArray())
+        foreach (var item in items.EnumerateArray())
         {
             // Items may be wrapped in a container object (e.g. Reddit's {kind, data})
-            JsonElement data = item.ValueKind == JsonValueKind.Object
+            var data = item.ValueKind == JsonValueKind.Object
                 ? UnwrapIfNeeded(item)
                 : item;
 
-            string? title = GetStringValue(data, config.TitleField);
-            string? url = GetStringValue(data, config.UrlField);
+            var title = GetStringValue(data, config.TitleField);
+            var url = GetStringValue(data, config.UrlField);
 
             if (title is null)
             {
@@ -117,9 +121,9 @@ public class DynamicAggregator(
                 continue;
             }
 
-            DateTime publishedAt = ParseDateTime(data, config.PublishedAtField);
-            int? score = config.ScoreField is not null ? GetIntValue(data, config.ScoreField) : null;
-            int? commentCount = config.CommentCountField is not null
+            var publishedAt = ParseDateTime(data, config.PublishedAtField);
+            var score = config.ScoreField is not null ? GetIntValue(data, config.ScoreField) : null;
+            var commentCount = config.CommentCountField is not null
                 ? GetIntValue(data, config.CommentCountField)
                 : null;
 
@@ -134,9 +138,9 @@ public class DynamicAggregator(
     private static JsonElement UnwrapIfNeeded(JsonElement item)
     {
         JsonElement? candidate = null;
-        int objectCount = 0;
+        var objectCount = 0;
 
-        foreach (JsonProperty property in item.EnumerateObject())
+        foreach (var property in item.EnumerateObject())
         {
             if (property.Value.ValueKind == JsonValueKind.Object)
             {
@@ -151,9 +155,9 @@ public class DynamicAggregator(
     // Resolves a dot-separated path like "score" or "stats.points" against an element.
     private static JsonElement? ResolvePath(JsonElement element, string path)
     {
-        JsonElement current = element;
+        var current = element;
 
-        foreach (string segment in path.Split('.'))
+        foreach (var segment in path.Split('.'))
         {
             if (current.ValueKind != JsonValueKind.Object)
             {
@@ -171,19 +175,19 @@ public class DynamicAggregator(
 
     private static string? GetStringValue(JsonElement element, string path)
     {
-        JsonElement? node = ResolvePath(element, path);
+        var node = ResolvePath(element, path);
         return node?.ValueKind == JsonValueKind.String ? node.Value.GetString() : null;
     }
 
     private static int? GetIntValue(JsonElement element, string path)
     {
-        JsonElement? node = ResolvePath(element, path);
+        var node = ResolvePath(element, path);
         if (node is null)
         {
             return null;
         }
 
-        if (node.Value.ValueKind == JsonValueKind.Number && node.Value.TryGetInt32(out int value))
+        if (node.Value.ValueKind == JsonValueKind.Number && node.Value.TryGetInt32(out var value))
         {
             return value;
         }
@@ -193,7 +197,7 @@ public class DynamicAggregator(
 
     private static DateTime ParseDateTime(JsonElement element, string path)
     {
-        JsonElement? node = ResolvePath(element, path);
+        var node = ResolvePath(element, path);
         if (node is null)
         {
             return DateTime.UtcNow;
@@ -201,7 +205,7 @@ public class DynamicAggregator(
 
         // Unix timestamp (number)
         if (node.Value.ValueKind == JsonValueKind.Number
-            && node.Value.TryGetInt64(out long unixSeconds))
+            && node.Value.TryGetInt64(out var unixSeconds))
         {
             return DateTimeOffset.FromUnixTimeSeconds(unixSeconds).UtcDateTime;
         }
@@ -209,12 +213,12 @@ public class DynamicAggregator(
         // ISO 8601 string
         if (node.Value.ValueKind == JsonValueKind.String)
         {
-            string? raw = node.Value.GetString();
+            var raw = node.Value.GetString();
             if (raw is not null && DateTime.TryParse(
                 raw,
                 null,
                 System.Globalization.DateTimeStyles.RoundtripKind,
-                out DateTime parsed))
+                out var parsed))
             {
                 return parsed.ToUniversalTime();
             }

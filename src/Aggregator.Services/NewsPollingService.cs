@@ -92,7 +92,7 @@ public class NewsPollingService(
             await repository.SaveChangesAsync(cancellationToken);
             LogPollingFinished(logger, aggregator.DisplayName, null);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             LogPollingError(logger, aggregator.DisplayName, ex);
         }

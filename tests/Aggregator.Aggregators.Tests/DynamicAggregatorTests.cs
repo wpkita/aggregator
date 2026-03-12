@@ -1,9 +1,9 @@
-using System.Net;
-using System.Text;
 using Aggregator.Aggregators.Dynamic;
 using Aggregator.Core.Entities;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
+using System.Net;
+using System.Text;
 
 namespace Aggregator.Aggregators.Tests;
 
@@ -229,7 +229,7 @@ public class DynamicAggregatorTests
         };
 
     private static StaticJsonHandler JsonResponse(string json)
-        => new StaticJsonHandler(json);
+        => new(json);
 
     private sealed class StubHttpClientFactory(HttpMessageHandler handler) : IHttpClientFactory
     {

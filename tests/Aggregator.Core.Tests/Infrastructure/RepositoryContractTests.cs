@@ -13,7 +13,7 @@ public class RepositoryContractTests
         var mock = new Mock<IRepository<object>>();
         mock.Setup(r => r.GetByIdAsync(99, default)).ReturnsAsync((object?)null);
 
-        object? result = await mock.Object.GetByIdAsync(99);
+        var result = await mock.Object.GetByIdAsync(99);
 
         Assert.That(result, Is.Null);
     }
@@ -24,7 +24,7 @@ public class RepositoryContractTests
         var mock = new Mock<IRepository<object>>();
         mock.Setup(r => r.GetAllAsync(default)).ReturnsAsync([]);
 
-        IEnumerable<object> result = await mock.Object.GetAllAsync();
+        var result = await mock.Object.GetAllAsync();
 
         Assert.That(result, Is.Empty);
     }
