@@ -287,3 +287,7 @@ indent_size = 2
 
 [*.md]
 trim_trailing_whitespace = false
+
+[tests/**/*.cs]
+# Async suffix convention doesn't apply to test methods — they aren't called by user code
+dotnet_diagnostic.IDE1006.severity = none
