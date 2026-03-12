@@ -49,7 +49,7 @@ Stop with `Ctrl+C`.
 
 ## Adding a New Aggregator
 
-# Show help
+### Show help
 
 ```bash
 aggy --help
@@ -82,9 +82,9 @@ aggy add https://www.reddit.com/r/programming/.json \
 
 ## Linting & Formatting
 
-[`dotnet format`](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-format) enforces
-`.editorconfig` rules. `EnforceCodeStyleInBuild` is enabled, so `dotnet build` also fails on
-style violations.
+[`dotnet format`](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-format)
+enforces `.editorconfig` rules. `EnforceCodeStyleInBuild` is enabled, so `dotnet build`
+also fails on style violations.
 
 Verify without modifying files (for CI):
 
@@ -96,12 +96,4 @@ Auto-fix all issues:
 
 ```sh
 dotnet format
-```
-
-Run individual checks:
-
-```sh
-dotnet format whitespace --verify-no-changes
-dotnet format style --verify-no-changes
-dotnet format analyzers --verify-no-changes
 ```
